@@ -13,7 +13,6 @@ OpenSky Network — получение информации о самолета�
 Проект реализован с использованием принципов ООП и SOLID.
 
 - Структура проекта:
-
 aeroplane_project/
 │
 ├── 
@@ -37,6 +36,9 @@ aeroplane_project/
 ├── requirements.txt
 ├── README.md
 └── .gitignore
+- poetry.lock
+- flake8
+- pyproject.toml
 
 Установка:
 1. Клонировать репозиторий
