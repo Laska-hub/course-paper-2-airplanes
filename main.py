@@ -1,50 +1,57 @@
-from typing import List, Tuple
+import sys
+from typing import List
 
-from aeroplane_project.api_adapter import AeroplanesAPI
+from aeroplane_project.api_adapter import get_raw_data
 from aeroplane_project.models.aeroplane import Aeroplane
-from aeroplane_project.utils.helpers import (
-    filter_aeroplanes,
-    get_aeroplanes_by_altitude,
-    get_top_aeroplanes,
-    sort_aeroplanes,
-)
+from aeroplane_project.processing import process_planes
 
 
-def user_interaction() -> None:
-    country = input("Введите название страны для запроса: ")
-    top_n = int(input("Введите количество самолетов для топ N: "))
-    filter_words = input(
-        "Введите страны для фильтрации по регистрации (через пробел): "
-    ).split()
-    altitude_input = input(
-        "Введите диапазон высот полета через дефис (например 10000-15000): "
+def main() -> None:
+    """Основная функция программы."""
+    try:
+        raw_data: List[List] = get_raw_data("https://opensky-network.org/api/states/all")
+    except RuntimeError as exc:
+        print(f"Ошибка API: {exc}")
+        sys.exit(1)
+
+    try:
+        country_input: str = input("Введите страну для фильтрации: ").strip()
+
+        top_n_input: str = input("Введите количество самолетов для топ N: ").strip()
+        top_n: int = int(top_n_input)
+
+        countries_input: str = input(
+            "Фильтр по странам (через пробел, оставьте пустым для всех): "
+        ).strip()
+        countries: List[str] = countries_input.split() if countries_input else [country_input]
+
+        alt_range_input: str = input("Диапазон высот (min max): ").strip()
+        alt_min_str, alt_max_str = alt_range_input.split()
+        alt_min: float = float(alt_min_str)
+        alt_max: float = float(alt_max_str)
+
+    except (ValueError, IndexError):
+        print("Ошибка ввода. Пожалуйста, введите числа корректно.")
+        sys.exit(1)
+
+    planes: List[Aeroplane] = process_planes(
+        raw_data=raw_data,
+        countries=countries,
+        alt_min=alt_min,
+        alt_max=alt_max,
+        top_n=top_n,
     )
 
-    # Парсим диапазон высот
-    try:
-        if "-" in altitude_input:
-            min_alt, max_alt = map(float, altitude_input.split("-"))
-        else:
-            raise ValueError
-    except ValueError:
-        print("Некорректный формат диапазона высот. Используется 0-100000")
-        min_alt, max_alt = 0, 100000
+    if not planes:
+        print("Нет самолетов для выбранных фильтров.")
+        return
 
-    altitude_range: Tuple[float, float] = (min_alt, max_alt)
-
-    api = AeroplanesAPI()
-    raw_data = api.get_aeroplanes(country)
-    aeroplanes: List[Aeroplane] = [Aeroplane.from_raw(p) for p in raw_data]
-
-    filtered_planes = filter_aeroplanes(aeroplanes, filter_words)
-    ranged_planes = get_aeroplanes_by_altitude(filtered_planes, altitude_range)
-    sorted_planes = sort_aeroplanes(ranged_planes)
-    top_planes = get_top_aeroplanes(sorted_planes, top_n)
-
-    print("\nТоп самолетов:")
-    for i, plane in enumerate(top_planes, 1):
-        print(f"{i}. {plane}")
+    for plane in planes:
+        print(
+            f"{plane.callsign} ({plane.country}) - "
+            f"высота: {plane.altitude}, скорость: {plane.velocity}"
+        )
 
 
 if __name__ == "__main__":
-    user_interaction()
+    main()
